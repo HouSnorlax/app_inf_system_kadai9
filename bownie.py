@@ -62,7 +62,7 @@ def initialize_camera():
 #
 initialize_camera()
 task = kpu.load(0x600000)
-classes = ['hand']
+classes = ['hand','background']
 anchor = (1.889, 2.5245, 2.9465, 3.94056, 3.99987, 5.3658, 5.155437, 6.92275, 6.718375, 9.01025)
 # Anchor data is for bbox, extracted from the training sets.
 kpu.init_yolo2(task, 0.35, 0.3, 5, anchor)
@@ -101,7 +101,7 @@ try:
             lcd.draw_string(40, 40, text, lcd.WHITE, lcd.BLACK)
             print('[Result]: ' + text)
             #IF Button A Push Then Image Send UART
-            if max_i.value() >= 0.5:
+            if (classes[max_id] == "hand" and max_i.value() >= 0.5):
                 lcd.display(img)
                 send(img.copy((max_x,max_y,max_w,max_h)), lcd.RED)
         else:
