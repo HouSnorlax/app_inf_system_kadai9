@@ -54,6 +54,7 @@ def initialize_camera():
 
     sensor.set_pixformat(sensor.RGB565)
     sensor.set_framesize(sensor.QVGA) #QVGA=320x240
+    sensor.set_windowing((224, 224))
     sensor.skip_frames(10)
     sensor.run(1)
 
@@ -62,8 +63,9 @@ def initialize_camera():
 #
 initialize_camera()
 task = kpu.load(0x600000)
+# クラス,anchorをモデルに合わせて変更
 classes = ['hand','background']
-anchor = (1.889, 2.5245, 2.9465, 3.94056, 3.99987, 5.3658, 5.155437, 6.92275, 6.718375, 9.01025)
+anchor = (2.8, 2.94, 6.94, 3.84, 2.41, 3.53, 3.75, 3.62, 4.98, 3.28)
 # Anchor data is for bbox, extracted from the training sets.
 kpu.init_yolo2(task, 0.35, 0.3, 5, anchor)
 
@@ -100,8 +102,8 @@ try:
             lcd.display(img)
             lcd.draw_string(40, 40, text, lcd.WHITE, lcd.BLACK)
             print('[Result]: ' + text)
-            #IF Button A Push Then Image Send UART
-            if (classes[max_id] == "hand" and max_i.value() >= 0.5):
+            # handと認識した割合が0.4以上で画像送信
+            if (classes[max_id] == "hand" and max_i.value() >= 0.4):
                 lcd.display(img)
                 send(img.copy((max_x,max_y,max_w,max_h)), lcd.RED)
         else:

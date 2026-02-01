@@ -15,7 +15,7 @@ uint8_t state[27] = {
     0x02, 0x20, 0xE0, 0x04, 0x00, 0x00, 0x00, 0x06, 0x02, 0x20, 
     0xE0, 0x04, 0x00, 0x40, 0x2E, 0x80, 0xAF, 0x00, 0x00, 0x06, 
     0x60, 0x00, 0x00, 0x80, 0x00, 0x06, 0x8F
-}; // 赤外線データ
+}; // 赤外線解析によって取得データ
 bool power = false;
 uint8_t degrees = 23;
 
@@ -25,7 +25,7 @@ HTTPClient myHttp;
 
 const char ssid[] = "";
 const char* password = "";
-const String url = "http://000.000.000.000:5000";
+const String url = "http://192.168.10.105:5000";
 const String act = "/recog";
 
 
@@ -64,7 +64,7 @@ void setup() {
     ac.setRaw(state);
 
     M5.Axp.ScreenBreath(100); //brightness = MAX
-    pinMode(LED_PIN, OUTPUT);
+    pinMode(led_pin, OUTPUT);
 
     setupWifi();
     Serial2.begin(115200, SERIAL_8N1, 32, 33);
@@ -104,7 +104,6 @@ void loop() {
 
                 if (ret == HTTP_CODE_OK) {
                     String response = myHttp.getString();
-                    //Serial.println(response);
                     //jsonドキュメントの作成 make JSON document
                     const size_t capacity = 768;
                     DynamicJsonDocument doc(capacity);
@@ -117,6 +116,7 @@ void loop() {
                     M5.Lcd.setCursor(0, 0);
                     M5.Lcd.setTextSize(3);
 
+                    // Gemini APIからの結果によってエアコンを操作
                     switch (command) {
                     case 1:
                         //電源ON
@@ -179,31 +179,30 @@ void loop() {
                         }
                         break;
                     default:
-                        M5.Lcd.println("WAIT"); // 0 または エラー
+                        M5.Lcd.println("WAIT"); // 何もしない または エラー
                         break;
                     }
+                } else {
+                    Serial.println(myHttp.errorToString(ret).c_str());
+                    M5.Lcd.setCursor(140, 40);
+                    M5.Lcd.print("HTTP Error");
                 }
-            } else {
-                Serial.println(myHttp.errorToString(ret).c_str());
-                M5.Lcd.setCursor(140, 40);
-                M5.Lcd.print("HTTP Error");
-            }
 
-                myHttp.end();
+                    myHttp.end();
+            }
         }
     }
 }
-
 void setupWifi() {
     delay(10);
-    digitalWrite(LED_PIN, LOW);
-    WiFi.begin(ssid); //Start Wifi connection.
+    digitalWrite(led_pin, LOW);
+    WiFi.begin(ssid, password); //Start Wifi connection.
 
     while (WiFi.status() != WL_CONNECTED) {
         delay(250);
-        digitalWrite(LED_PIN, HIGH);
+        digitalWrite(led_pin, HIGH);
         delay(250);
-        digitalWrite(LED_PIN, LOW);
+        digitalWrite(led_pin, LOW);
     }
-    digitalWrite(LED_PIN, HIGH);
+    digitalWrite(led_pin, HIGH);
 }
