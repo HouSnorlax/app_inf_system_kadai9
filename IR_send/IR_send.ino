@@ -84,75 +84,126 @@ void setup() {
 void loop() {
     M5.update();
     
-    if (M5.BtnA.wasPressed()) {
-        if (power){
-            M5.Lcd.fillScreen(BLACK);
-            M5.Lcd.setCursor(0, 0);
-            M5.Lcd.println("Sending...");
-            
-            ac.off();
-            ac.send();
-            
-            delay(500);
-            M5.Lcd.println("Power OFF");
-            power = false;
-        }
-        else {
-            M5.Lcd.fillScreen(BLACK);
-            M5.Lcd.setCursor(0, 0);
-            M5.Lcd.println("Sending...");
-            
-            ac.on();
-            ac.send();
+    if (Serial2.available()) {
+        int rx_size = Serial2.readBytes(rx_buffer1, 10);
+        if (rx_size == 10) {   //packet receive of packet_begin
+            if ((rx_buffer1[0] == packet_begin[0]) && (rx_buffer1[1] == packet_begin[1]) && (rx_buffer1[2] == packet_begin[2])) {
+                rx_size = Serial2.readBytes(rx_buffer, 2 * xy);
+                //Serial.println(rx_size);
+                for (int i = 0; i < xy; i++) {
+                    rx_buffer2[i] = (rx_buffer[2 * i] << 8) + rx_buffer[2 * i + 1];
+                    uiB[66 + 2 * i] = rx_buffer[2 * i + 1];
+                    uiB[66 + 2 * i + 1] = rx_buffer[2 * i];
+                }
+                M5.Lcd.fillScreen(BLACK);
+                M5.Lcd.drawBitmap(108, 4, x, y, rx_buffer2);
 
-            delay(500);
-            M5.Lcd.println("Power ON");
-            power = true;
-        }
-    }
+                myHttp.begin(url + act);
+                myHttp.addHeader("Content-Type", "application/octet-stream");
+                int32_t ret = (int32_t)myHttp.POST(uiB, 2 * xy + 66);
 
-    if (M5.BtnB.wasPressed()){
-        if(power){
-            M5.Lcd.fillScreen(BLACK);
-            M5.Lcd.setCursor(0, 0);
-            M5.Lcd.println("Sending...");
-            
-            degrees++;
-            ac.setTemp(degrees);
-            ac.send();
-            
-            delay(500);
-            M5.Lcd.println("Turn up");
-        }
-    }
+                if (ret == HTTP_CODE_OK) {
+                    String response = myHttp.getString();
+                    //Serial.println(response);
+                    //jsonドキュメントの作成 make JSON document
+                    const size_t capacity = 768;
+                    DynamicJsonDocument doc(capacity);
+                    DeserializationError err = deserializeJson(doc, response);
+                    
+                    int command = doc["command"];
 
-        if (M5.Axp.GetBtnPress() == 2){
-        if(power){
-            M5.Lcd.fillScreen(BLACK);
-            M5.Lcd.setCursor(0, 0);
-            M5.Lcd.println("Sending...");
-            
-            degrees--;
-            ac.setTemp(degrees);
-            ac.send();
-            
-            delay(500);
-            M5.Lcd.println("Turn down");
+                    
+                    M5.Lcd.fillScreen(BLACK);
+                    M5.Lcd.setCursor(0, 0);
+                    M5.Lcd.setTextSize(3);
+
+                    switch (command) {
+                    case 1:
+                        //電源ON
+                        if(!power){
+                            M5.Lcd.println("Sending...");
+                            
+                            ac.on();
+                            ac.send();
+
+                            delay(500);
+                            M5.Lcd.println("Power ON");
+                            power = true;
+                        } else {
+                            M5.Lcd.println("Now Power ON");
+                        }   
+                        break;
+                    case 2:
+                        //電源OFF
+                        if(power){
+                            M5.Lcd.println("Sending...");
+                            
+                            ac.off();
+                            ac.send();
+                            
+                            delay(500);
+                            M5.Lcd.println("Power OFF");
+                            power = false;
+                        } else {
+                            M5.Lcd.println("Now Power OFF");
+                        }
+                        break;
+                    case 3:
+                        //温度上昇
+                        if(power){
+                            M5.Lcd.println("Sending...");
+                            
+                            degrees++;
+                            ac.setTemp(degrees);
+                            ac.send();
+                            
+                            delay(500);
+                            M5.Lcd.printf("Set Temp: %d C\r\n", degrees);
+                        } else {
+                            M5.Lcd.println("Need Power ON");
+                        }
+                        break;
+                    case 4:
+                        //温度低下
+                        if(power){
+                            M5.Lcd.println("Sending...");
+                            
+                            degrees--;
+                            ac.setTemp(degrees);
+                            ac.send();
+                            
+                            delay(500);
+                            M5.Lcd.printf("Set Temp: %d C\r\n", degrees);
+                        } else {
+                            M5.Lcd.println("Need Power ON");
+                        }
+                        break;
+                    default:
+                        M5.Lcd.println("WAIT"); // 0 または エラー
+                        break;
+                    }
+                }
+            } else {
+                Serial.println(myHttp.errorToString(ret).c_str());
+                M5.Lcd.setCursor(140, 40);
+                M5.Lcd.print("HTTP Error");
+            }
+
+                myHttp.end();
         }
     }
 }
 
-
 void setupWifi() {
-  delay(10);
-  digitalWrite(LED_PIN, LOW);
-  WiFi.begin(ssid); //Start Wifi connection.
-
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(250);
-    digitalWrite(LED_PIN, HIGH);
-    delay(250);
+    delay(10);
     digitalWrite(LED_PIN, LOW);
-  }
-  digitalWrite(LED_PIN, HIGH);
+    WiFi.begin(ssid); //Start Wifi connection.
+
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(250);
+        digitalWrite(LED_PIN, HIGH);
+        delay(250);
+        digitalWrite(LED_PIN, LOW);
+    }
+    digitalWrite(LED_PIN, HIGH);
 }
